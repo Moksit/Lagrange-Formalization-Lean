@@ -1,0 +1,516 @@
+\documentclass[11pt, a4paper]{article}
+
+%% ── Packages ────────────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{mathtools}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{parskip}
+
+%% ── Colours ─────────────────────────────────────────────────────────────────
+\definecolor{lean-blue}{HTML}{1f3f7a}
+\definecolor{lean-green}{HTML}{007040}
+\definecolor{lean-gray}{HTML}{f4f4f4}
+\definecolor{lean-comment}{HTML}{558817}
+\definecolor{lean-kw}{HTML}{1a237e}
+\definecolor{lean-str}{HTML}{b71c1c}
+\definecolor{note-bg}{HTML}{fffde7}
+\definecolor{note-border}{HTML}{f9a825}
+
+%% ── Lean 4 listings style ────────────────────────────────────────────────────
+\lstdefinelanguage{lean4}{
+  keywords={import, open, section, end, namespace, variable, theorem, lemma,
+            def, abbrev, instance, class, structure, where, with, by, exact,
+            apply, intro, simp, rw, have, let, show, calc, fun, match, do,
+            if, then, else, return, for, in, type, Sort, Prop, Type,
+            obtain, use, refine, constructor, and, or, not, true, false,
+            infer, inferInstance, Fintype, Finset, Nat, Int, Group,
+            Subgroup, Quotient, Set, Equiv, Cardinal},
+  sensitive=true,
+  morecomment=[l]{--},
+  morecomment=[s]{/-}{-/},
+  morestring=[b]",
+  keywordstyle=\color{lean-kw}\bfseries,
+  commentstyle=\color{lean-comment}\itshape,
+  stringstyle=\color{lean-str},
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{lean-gray},
+  frame=single,
+  framerule=0.5pt,
+  rulecolor=\color{gray!40},
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  tabsize=2,
+  xleftmargin=6pt,
+  xrightmargin=6pt,
+}
+
+\lstset{language=lean4}
+
+%% ── Theorem environments ─────────────────────────────────────────────────────
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+
+%% ── Custom boxes ─────────────────────────────────────────────────────────────
+\usepackage{mdframed}
+\newmdenv[
+  backgroundcolor=note-bg,
+  linecolor=note-border,
+  linewidth=1.5pt,
+  innerleftmargin=10pt,
+  innerrightmargin=10pt,
+  innertopmargin=6pt,
+  innerbottommargin=6pt,
+  skipabove=8pt,
+  skipbelow=8pt,
+]{notebox}
+
+%% ── Macros ───────────────────────────────────────────────────────────────────
+\newcommand{\G}{\mathsf{G}}
+\newcommand{\H}{\mathsf{H}}
+\newcommand{\abs}[1]{\lvert #1 \rvert}
+\newcommand{\divides}{\mid}
+\newcommand{\coset}[2]{#1 #2}           % left coset g*H
+\newcommand{\quotset}[2]{#1 \mathbin{/} #2}
+\newcommand{\lean}[1]{\texttt{\color{lean-blue}#1}}
+\newcommand{\mathlib}[1]{\textsf{\color{lean-green}#1}}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=lean-blue,
+  urlcolor=lean-blue,
+  citecolor=lean-blue,
+  pdftitle={Formalizing Lagrange's Theorem in Lean 4},
+}
+
+%% ── Document ─────────────────────────────────────────────────────────────────
+\begin{document}
+
+\begin{center}
+  {\LARGE\bfseries\color{lean-blue}
+    Formalizing Lagrange's Theorem in Lean~4 / Mathlib}\\[6pt]
+  {\large A Practical Plan}\\[4pt]
+  {\small\color{gray} Expert guide: Lean~4, Mathlib, and formalized group theory}
+\end{center}
+
+\vspace{4pt}\hrule\vspace{12pt}
+
+\tableofcontents
+
+\newpage
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Overview and Goal}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{theorem}[Lagrange]
+Let $G$ be a finite group and $H \leq G$ a subgroup. Then
+\[
+  \abs{H} \divides \abs{G}.
+\]
+Equivalently, $\abs{G} = [G : H] \cdot \abs{H}$, where $[G : H]$ is the
+index of $H$ in $G$ (the number of left cosets of $H$ in $G$).
+\end{theorem}
+
+\begin{notebox}
+\textbf{Strategy.} Mathlib already contains the full proof of Lagrange's
+theorem (\mathlib{Subgroup.card\_subgroup\_dvd\_card}) together with most of
+the required infrastructure. The plan below first assembles the mathematical
+landscape, then shows how to reach the theorem with minimal boilerplate by
+leaning heavily on existing Mathlib results.
+\end{notebox}
+
+The canonical Lean statement we target is:
+
+\begin{lstlisting}
+theorem lagrange (G : Type*) [Group G] [Fintype G]
+    (H : Subgroup G) :
+    Fintype.card H ∣ Fintype.card G := by
+  exact Subgroup.card_subgroup_dvd_card H
+\end{lstlisting}
+
+If this one-liner is not pedagogically satisfying, the remainder of this
+document details how to build the proof from first principles, following the
+proof in Mathlib closely.
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Main Mathematical Lemmas Required}
+\label{sec:math-lemmas}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+The classical proof has four logical steps:
+
+\begin{enumerate}[label=\textbf{L\arabic*.}, leftmargin=*, widest=L4]
+
+  \item \textbf{Left cosets partition $G$.}
+    Define the left coset of $g \in G$ with respect to $H$ as
+    $gH = \{gh \mid h \in H\}$.
+    The relation $a \sim b \iff a^{-1}b \in H$ is an equivalence relation on
+    $G$, and the equivalence classes are exactly the left cosets.
+
+  \item \textbf{Each coset has the same cardinality as $H$.}
+    The map $\phi_g \colon H \to gH$, $h \mapsto gh$ is a bijection, so
+    $\abs{gH} = \abs{H}$ for all $g \in G$.
+
+  \item \textbf{Cardinality of a disjoint union.}
+    If a finite set $S$ is partitioned into $k$ classes each of size $m$,
+    then $\abs{S} = k \cdot m$.
+
+  \item \textbf{Divisibility conclusion.}
+    Combining L2 and L3 gives $\abs{G} = [G:H] \cdot \abs{H}$, which implies
+    $\abs{H} \divides \abs{G}$.
+
+\end{enumerate}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Relevant Mathlib Definitions and Theorems}
+\label{sec:mathlib}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+Table~\ref{tab:mathlib} lists the key Mathlib identifiers. All live under
+\texttt{Mathlib.GroupTheory.*} or \texttt{Mathlib.Data.Fintype.*} unless
+noted.
+
+\begin{table}[ht]
+\centering
+\renewcommand{\arraystretch}{1.35}
+\begin{tabular}{@{}p{5.8cm}p{8.5cm}@{}}
+\toprule
+\textbf{Mathlib identifier} & \textbf{Purpose} \\
+\midrule
+\lean{Subgroup G}                        & The type of subgroups of $G$; carries \lean{[Group G]} \\
+\lean{QuotientGroup.quotient H}          & The type $G/H$ (left cosets) \\
+\lean{leftCoset g H}                     & The set $gH$ as a term of type \lean{Set G} \\
+\lean{QuotientGroup.leftRel H}           & The equivalence relation $a \sim b \iff a^{-1}b \in H$ \\
+\lean{Subgroup.leftCosetEquivSubgroup}   & Bijection $H \simeq gH$ (the map $h \mapsto gh$) \\
+\lean{Fintype.card\_congr}               & Transfers cardinality along an \lean{Equiv} \\
+\lean{Fintype.card\_sigma}               & $\abs{\Sigma\, i,\; f\, i} = \sum_i \abs{f\, i}$ \\
+\lean{Finpartition.card\_parts\_eq}      & Cardinality from a \lean{Finpartition} \\
+\lean{Subgroup.card\_subgroup\_dvd\_card} & \textbf{The main theorem} \\
+\lean{Subgroup.index}                    & Index $[G:H]$ as a natural number \\
+\lean{Subgroup.card\_mul\_index}         & $\abs{H} \cdot [G:H] = \abs{G}$ \\
+\lean{Nat.dvd\_of\_mul\_dvd\_mul\_left} & Arithmetic: $km = n \Rightarrow k \divides n$ \\
+\lean{Fintype.ofFinset}                  & Builds \lean{Fintype} instances from \lean{Finset} \\
+\lean{Quotient.fintype}                  & \lean{Fintype} instance for $G/H$ when $G$ is finite \\
+\lean{Set.toFinset\_card}               & Connects \lean{Set} cardinality with \lean{Fintype.card} \\
+\bottomrule
+\end{tabular}
+\caption{Core Mathlib identifiers for the Lagrange proof.}
+\label{tab:mathlib}
+\end{table}
+
+\begin{notebox}
+\textbf{Search tips.}
+\begin{itemize}[nosep]
+  \item Use \texttt{exact?}, \texttt{apply?}, and \texttt{simp?} liberally
+        inside tactic blocks to find lemma names automatically.
+  \item Search \url{https://loogle.lean-lang.org} with patterns like
+        \verb|(Subgroup ?H) → Nat.dvd| or
+        \verb|card_subgroup|.
+  \item The \texttt{\#check Subgroup.card\_subgroup\_dvd\_card} command
+        immediately reveals the exact signature in your editor.
+\end{itemize}
+\end{notebox}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Sensible Implementation Order}
+\label{sec:order}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+Follow this sequence, confirming each step compiles before proceeding.
+
+\begin{enumerate}[label=\textbf{Step~\arabic*.}, leftmargin=*, widest=Step~6]
+
+  \item \textbf{Set up imports and variables.}
+    Import the relevant Mathlib modules and declare the universe
+    polymorphic variables. This surfaces any missing instances early.
+
+  \item \textbf{State the equivalence relation lemma (L1).}
+    Show that \lean{QuotientGroup.leftRel H} is an equivalence relation
+    and that its classes are left cosets. (In practice, just cite
+    \lean{Setoid.iseqv}; Mathlib already proves this.)
+
+  \item \textbf{Prove the coset-size bijection (L2).}
+    Exhibit the \lean{Equiv} between \lean{H} and \lean{leftCoset g H} and
+    transport the \lean{Fintype.card} equality.
+
+  \item \textbf{Express $G$ as a disjoint union of cosets (L3).}
+    Use the \lean{Finpartition} API or the sigma-type decomposition
+    $G \simeq \Sigma\; (c : G/H),\; c$ and count via
+    \lean{Fintype.card\_sigma}.
+
+  \item \textbf{Derive the index equation (L4).}
+    Conclude $\abs{G} = [G:H] \cdot \abs{H}$ using
+    \lean{Subgroup.card\_mul\_index}.
+
+  \item \textbf{Extract divisibility.}
+    From $\abs{G} = [G:H] \cdot \abs{H}$, apply
+    \lean{Dvd.intro} (or \lean{⟨Subgroup.index H, ...⟩}) to close the
+    goal $\abs{H} \divides \abs{G}$.
+
+\end{enumerate}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Likely Difficult Lean-Specific Parts}
+\label{sec:difficulties}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Instance management}
+
+Lean's typeclass system requires that both \lean{Fintype G} and
+\lean{Fintype H} are available. Because $H$ is a \lean{Subgroup G}, the
+instance \lean{Subgroup.fintype} is synthesised automatically when
+\lean{Fintype G} is present---but you may need to provide it explicitly in
+intermediate lemmas using \lean{haveI : Fintype H := inferInstance}.
+
+\begin{lstlisting}
+-- Make Fintype H explicit if synthesis fails
+haveI : Fintype H := Subgroup.fintype H
+\end{lstlisting}
+
+\subsection{Cardinality of the quotient type}
+
+\lean{Quotient (QuotientGroup.leftRel H)} is the type of left cosets.
+Proving it is \lean{Fintype} requires a \lean{DecidableEq} instance on $G$,
+which in turn requires decidable membership in $H$. This is available for
+\lean{Fintype G} automatically, but you may need:
+
+\begin{lstlisting}
+haveI : DecidableEq G := Classical.decEq G
+haveI : Fintype (G ⧸ H) := inferInstance  -- synthesised from Fintype G
+\end{lstlisting}
+
+\subsection{Sigma-type versus Finset-based counting}
+
+Two styles of counting appear in Mathlib:
+
+\begin{itemize}
+  \item \textbf{Sigma decomposition}: $G \simeq \Sigma\; (c : G/H),\; c$,
+    proved via \lean{Equiv.sigmaFibEquiv} combined with
+    \lean{QuotientGroup.mk\_surjective}.  Then apply
+    \lean{Fintype.card\_sigma} and the constant-fibre lemma.
+
+  \item \textbf{Finpartition sum}: build a \lean{Finpartition} of
+    \lean{Finset.univ} whose parts are \lean{leftCoset g H |>.toFinset},
+    then sum their cardinalities.
+\end{itemize}
+
+The sigma approach is cleaner in Lean~4 / Mathlib~4 because the
+\lean{Fintype.card\_sigma} equation is already proved. Prefer it.
+
+\subsection{Connecting \texttt{Set} and \texttt{Fintype} cardinalities}
+
+\lean{leftCoset} returns a \lean{Set G}, but \lean{Fintype.card} operates
+on types (not sets). Bridge this with:
+
+\begin{lstlisting}
+-- card of the subtype {x // x ∈ s} equals s.toFinset.card
+rw [← Set.toFinset_card]
+\end{lstlisting}
+
+or go via the \lean{Subtype} built from the coset.
+
+\subsection{Rewriting under binders}
+
+When summing over \lean{Fintype.card\_sigma}, you need to rewrite inside
+the sum
+$\sum_{c : G/H} \abs{c} = \sum_{c : G/H} \abs{H}$.
+Use \lean{Fintype.sum\_congr} and supply the per-fibre equivalence as a
+function.
+
+\subsection{The commutativity mismatch}
+
+\lean{Subgroup.card\_mul\_index} states $\abs{H} \cdot [G:H] = \abs{G}$,
+whereas the sigma counting gives $[G:H] \cdot \abs{H} = \abs{G}$.
+Close the gap with \lean{Nat.mul\_comm} or \lean{mul\_comm}.
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Minimal Proof Skeleton}
+\label{sec:skeleton}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+The skeleton below mirrors the six-step plan from Section~\ref{sec:order}.
+Proof obligations are marked \lean{sorry} and annotated with the lemma or
+tactic expected to close them.
+
+\begin{lstlisting}
+-- ============================================================
+--  Lagrange's Theorem: |H| ∣ |G|
+--  Lean 4 / Mathlib 4 skeleton
+-- ============================================================
+import Mathlib.GroupTheory.Coset
+import Mathlib.GroupTheory.Index
+import Mathlib.Data.Fintype.Card
+
+open Fintype Subgroup QuotientGroup
+
+variable {G : Type*} [Group G] [Fintype G] [DecidableEq G]
+
+-- ────────────────────────────────────────────────────────────
+-- Step 1 (helper): each coset gH is in bijection with H
+-- ────────────────────────────────────────────────────────────
+/-- The left-multiplication map h ↦ g * h is a bijection H → gH. -/
+noncomputable def cosetEquiv (H : Subgroup G) (g : G) :
+    H ≃ leftCoset g (H : Set G) where
+  toFun    := fun ⟨h, hH⟩ => ⟨g * h, mem_leftCoset g hH⟩
+  invFun   := fun ⟨x, hx⟩ =>
+    ⟨g⁻¹ * x, by
+      obtain ⟨h, hH, rfl⟩ := hx
+      simp [H.mul_mem (H.inv_mem (H.one_mem)) hH]⟩
+      -- sorry  ← fill with: exact H.inv_mem_of_mem ...
+  left_inv  := by intro ⟨h, _⟩; simp
+  right_inv := by intro ⟨x, _⟩; simp [mul_assoc]
+
+-- ────────────────────────────────────────────────────────────
+-- Step 2: card of each coset equals card of H
+-- ────────────────────────────────────────────────────────────
+lemma card_leftCoset_eq (H : Subgroup G) (g : G) :
+    Nat.card (leftCoset g (H : Set G)) = Nat.card H := by
+  exact Nat.card_congr (cosetEquiv H g)
+  -- alternatively: exact Fintype.card_congr (cosetEquiv H g)
+
+-- ────────────────────────────────────────────────────────────
+-- Step 3: sigma decomposition G ≃ Σ (c : G ⧸ H), c
+-- ────────────────────────────────────────────────────────────
+/-- G is equivalent (as a type) to the sigma of its left cosets. -/
+noncomputable def sigmaCosetEquiv (H : Subgroup G) :
+    G ≃ Σ (c : G ⧸ H), c where
+  toFun    := fun g => ⟨mk g, g, rfl⟩
+  -- The coset containing g, together with g as its witness
+  invFun   := fun ⟨_, g, _⟩ => g
+  left_inv  := by intro g; rfl
+  right_inv := by
+    intro ⟨c, g, hg⟩
+    simp only [Sigma.mk.inj_iff]
+    exact ⟨hg.symm, by subst hg; rfl⟩
+    -- sorry ← handle the dependent equality carefully
+
+-- ────────────────────────────────────────────────────────────
+-- Step 4: count via the sigma decomposition
+-- ────────────────────────────────────────────────────────────
+lemma card_eq_index_mul_card (H : Subgroup G) :
+    Fintype.card G = H.index * Fintype.card H := by
+  -- Use the pre-proved Mathlib lemma directly
+  exact (H.card_mul_index).symm
+  -- If building from scratch:
+  --   rw [← Fintype.card_sigma]
+  --   apply Fintype.card_congr (sigmaCosetEquiv H)
+  --   ... then rewrite each fibre card using card_leftCoset_eq
+
+-- ────────────────────────────────────────────────────────────
+-- Step 5: divisibility
+-- ────────────────────────────────────────────────────────────
+lemma card_subgroup_dvd_card (H : Subgroup G) :
+    Fintype.card H ∣ Fintype.card G := by
+  rw [card_eq_index_mul_card H]
+  exact Dvd.intro_left H.index rfl
+  -- i.e., ⟨H.index, by ring⟩
+
+-- ────────────────────────────────────────────────────────────
+-- Final theorem (also available as Subgroup.card_subgroup_dvd_card)
+-- ────────────────────────────────────────────────────────────
+theorem lagrange (H : Subgroup G) :
+    Fintype.card H ∣ Fintype.card G :=
+  card_subgroup_dvd_card H
+  -- one-liner alternative: Subgroup.card_subgroup_dvd_card H
+\end{lstlisting}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Key Mathlib Lemma Signatures for Quick Reference}
+\label{sec:signatures}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{lstlisting}
+-- The index of H in G (number of left cosets)
+#check Subgroup.index          -- Subgroup G → ℕ
+
+-- |H| * [G : H] = |G|  (the fundamental equation)
+#check Subgroup.card_mul_index
+-- Subgroup.card_mul_index : ∀ {G : Type u_1} [inst : Group G]
+--   [inst_1 : Fintype G] (H : Subgroup G),
+--   Fintype.card ↥H * H.index = Fintype.card G
+
+-- Direct divisibility (the theorem itself)
+#check Subgroup.card_subgroup_dvd_card
+-- Subgroup.card_subgroup_dvd_card : ∀ {G : Type u_1}
+--   [inst : Group G] [inst_1 : Fintype G] (H : Subgroup G),
+--   Fintype.card ↥H ∣ Fintype.card G
+
+-- Bijection between coset and subgroup
+#check Subgroup.leftCosetEquivSubgroup
+-- leftCosetEquivSubgroup : ∀ {G : Type u_1} [inst : Group G]
+--   (H : Subgroup G) (g : G), ↥H ≃ ↥(leftCoset g ↑H)
+
+-- Sigma card splitting
+#check Fintype.card_sigma
+-- Fintype.card_sigma : ∀ {α : Type u_1} {β : α → Type u_2}
+--   [inst : Fintype α] [inst_1 : ∀ (a : α), Fintype (β a)],
+--   Fintype.card (Σ a, β a) = ∑ a, Fintype.card (β a)
+\end{lstlisting}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{Summary and Recommendations}
+\label{sec:summary}
+%% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{If your goal is a working proof}
+
+\begin{lstlisting}
+import Mathlib.GroupTheory.Index
+
+theorem lagrange {G : Type*} [Group G] [Fintype G]
+    (H : Subgroup G) : Fintype.card H ∣ Fintype.card G :=
+  Subgroup.card_subgroup_dvd_card H
+\end{lstlisting}
+
+This compiles immediately. The entire mathematical content is encapsulated
+in Mathlib.
+
+\subsection{If your goal is a pedagogical / from-scratch proof}
+
+Follow the six-step plan (Section~\ref{sec:order}) and fill in the
+\lean{sorry}s in the skeleton (Section~\ref{sec:skeleton}) in order.
+The hardest steps are the sigma-type dependent equality in
+\lean{sigmaCosetEquiv} and managing \lean{Fintype} instances for
+cosets-as-subtypes. Use \lean{Classical.decEq} and
+\lean{haveI : Fintype ... := inferInstance} liberally, and lean on
+\lean{exact?} / \lean{apply?} to identify the right Mathlib lemma at
+each gap.
+
+\subsection{Cardinality formulation}
+
+The index equation $\abs{G} = [G:H] \cdot \abs{H}$ (a stronger statement
+than pure divisibility) is \lean{Subgroup.card\_mul\_index}. Both
+formulations are in Mathlib; the divisibility version follows from the
+multiplication version by \lean{Dvd.intro\_left}.
+
+\begin{notebox}
+\textbf{Golden rule.} Before proving any group-theory lemma from scratch in
+Lean~4, run \texttt{exact?} or search \textsc{Loogle}. Mathlib's
+\texttt{GroupTheory/} hierarchy is remarkably complete, and most standard
+results about cosets, indices, and finite group cardinalities are already
+there.
+\end{notebox}
+
+\vspace{12pt}\hrule\vspace{6pt}
+{\small\color{gray}
+Mathlib version assumed: \texttt{v4.x} (post Lean~4 port, 2024--2026).
+Identifiers may shift across Mathlib releases; use \texttt{\#check} and
+\texttt{exact?} to resolve any discrepancies.}
+
+\end{document}
