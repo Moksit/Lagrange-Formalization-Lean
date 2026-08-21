@@ -319,17 +319,40 @@ def groupEquivCosetProd (H : Subgroup G) : G ≃ LeftCosets H × H where
     rw [mul_inv_cancel]
     rw [one_mul]
 
-  -- PROOF 2: invFun (toFun g) = g
+-- PROOF 2: The right inverse mapping (invFun (toFun p) = p)
   right_inv := by
-    intro p
+    -- 'coset_pair' represents the input pair (C, h)
+    intro coset_pair
+
+    -- Unpack the pair into 'target_coset' (C) and 'subgroup_elem' (h)
+    rcases coset_pair with ⟨target_coset, subgroup_elem⟩
+
+    -- Pre-compute the core mathematical fact: (g * h)H = gH
+    have coset_unchanged : Quotient.mk (leftRel H) (Quotient.out target_coset * ↑subgroup_elem) = target_coset := by
+      -- Step 1: Prove (g * h)H = gH by applying Quotient.sound
+      have h_sound : Quotient.mk (leftRel H) (Quotient.out target_coset * ↑subgroup_elem) = Quotient.mk (leftRel H) (Quotient.out target_coset) := by
+        apply Quotient.sound
+        -- Show algebraically what the equivalence relation means
+        show (Quotient.out target_coset * ↑subgroup_elem)⁻¹ * Quotient.out target_coset ∈ H
+        rw [mul_inv_rev, mul_assoc, inv_mul_cancel, mul_one]
+        exact H.inv_mem subgroup_elem.property
+
+      -- Step 2: Use the standard fact that ⟦target_coset.out⟧ = target_coset
+      rw [h_sound]
+      exact Quotient.out_eq target_coset
+
+    -- Split the goal to prove equality for both parts of the pair
     ext
-    · dsimp
+    · -- Case 1: Prove the coset component maps back to itself
+      dsimp
+      exact coset_unchanged
 
-      sorry
-
-    -- Hint: Similar algebraic cancellation
-    -- dsimp
-    sorry
+    · -- Case 2: Prove the subgroup element component maps back to itself
+      dsimp
+      -- Rewrite using our pre-computed fact to simplify the expression
+      rw [coset_unchanged]
+      -- Standard algebraic cancellation
+      rw [← mul_assoc, inv_mul_cancel, one_mul]
 
 -- Step 3b: The Final Theorem
 -- Because you did the hard work of building the bijection above,
