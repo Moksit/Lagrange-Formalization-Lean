@@ -294,8 +294,8 @@ def groupEquivCosetProd (H : Subgroup G) : G ≃ LeftCosets H × H where
       have same_coset : Quotient.mk (leftRel H) rep = Quotient.mk (leftRel H) g :=
         Quotient.out_eq q
 
-      -- 2. Use Quotient.exact (now that the instance is registered, ≈ will work)
-      have are_related : rep ≈ g :=
+      -- 2. Use Quotient.exact directly on the custom relation
+      have are_related : (leftRel H).r rep g :=
         Quotient.exact same_coset
 
       -- 3. Being related means rep⁻¹ * g ∈ H by definition of leftRel
@@ -324,15 +324,6 @@ def groupEquivCosetProd (H : Subgroup G) : G ≃ LeftCosets H × H where
     intro p
     ext
     · dsimp
-      rw [← Quotient.out_eq p.1]
-      apply Quotient.sound
-      dsimp [leftRel]
-
-      nth_rewrite 2 [← Quotient.out_eq p.1]
-
-      -- here
-
-
 
       sorry
 
