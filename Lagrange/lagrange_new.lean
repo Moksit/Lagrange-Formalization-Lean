@@ -314,12 +314,30 @@ def groupEquivCosetProd (H : Subgroup G) : G ≃ LeftCosets H × H where
   left_inv := by
     intro g
     -- Hint: You'll need to show rep * (rep⁻¹ * g) = g
-    sorry
+    dsimp
+    rw [<- mul_assoc]
+    rw [mul_inv_cancel]
+    rw [one_mul]
 
   -- PROOF 2: invFun (toFun g) = g
   right_inv := by
     intro p
+    ext
+    · dsimp
+      rw [← Quotient.out_eq p.1]
+      apply Quotient.sound
+      dsimp [leftRel]
+
+      nth_rewrite 2 [← Quotient.out_eq p.1]
+
+      -- here
+
+
+
+      sorry
+
     -- Hint: Similar algebraic cancellation
+    -- dsimp
     sorry
 
 -- Step 3b: The Final Theorem
