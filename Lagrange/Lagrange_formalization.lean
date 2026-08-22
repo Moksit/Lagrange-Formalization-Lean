@@ -1,46 +1,6 @@
 import Mathlib
 
-open Function MulOpposite Set
-open scoped Pointwise
-
 variable {G : Type*} [Group G]
-variable (H : Subgroup G)
-
--- Theorem 1: Characterization of membership in a left coset
--- An element x belongs to the left coset g • H if and only if
--- x can be written as g * h for some element h in H.
-@[to_additive add_mem_vadd_set_add_subgroup]
-theorem mem_smul_set_subgroup
-    {G : Type*}              -- G is the type representing our group
-    [Group G]                -- G has a group structure (multiplication, inverses, identity)
-    (subgroupH : Subgroup G) -- H is a subgroup of G
-    (cosetRep elementX : G)  -- g (coset representative) and x (element being tested)
-    :
-    elementX ∈ cosetRep • (subgroupH : Set G) ↔ ∃ h : G, h ∈ subgroupH ∧ cosetRep * h = elementX := by
-
-  -- Because this is an if-and-only-if (↔) statement, we split it into two directions (goals)
-  constructor
-  · rintro ⟨groupElement, isMember, rfl⟩
-    -- rintro unpacks the existential statement hidden inside the set definition:
-    -- • groupElement: the element 'h' from the subgroup
-    -- • isMember: the proof that 'h ∈ H'
-    -- • rfl: substitutes elementX with (cosetRep * groupElement) automatically via reflexivity
-
-    -- We provide the exact same witness back to satisfy the right-hand side existential
-    exact ⟨groupElement, isMember, rfl⟩
-
-  -- Direction 2 (Backward ←): If elementX = g * h for some h ∈ H, it belongs to the coset
-  · rintro ⟨groupElement, isMember, rfl⟩
-    -- Similarly, rintro unpacks the assumption that such a 'h' exists and sets elementX = cosetRep * h
-
-    -- Conversely, if elementX = cosetRep * h with h ∈ H, it clearly belongs to cosetRep • H
-    exact ⟨groupElement, isMember, rfl⟩
-
-/-
-· rintro ⟨h, hh, h_eq⟩   -- 1. Unpack and name the equality `h_eq`
-  rw [h_eq]            -- 2. Manually rewrite/substitute it
-  exact ⟨h, hh, rfl⟩   -- 3. Finish the proof
--/
 
 -- Step 1: Define the equivalence relation
 -- We say 'a' and 'b' are related if they belong to the same left coset.
@@ -157,7 +117,7 @@ def groupEquivCosetProd (H : Subgroup G) : G ≃ LeftCosets H × H where
 -- Step 3b: The Final Theorem
 -- Because you did the hard work of building the bijection above,
 -- the cardinality proof is now just two lines of Fintype lemmas!
-theorem lagrange_theorem [Fintype G] [Fintype H] [Fintype (LeftCosets H)] :
+theorem lagrange_theorem [Fintype G] (H : Subgroup G) [Fintype H] [Fintype (LeftCosets H)] :
   Fintype.card G = Fintype.card (LeftCosets H) * Fintype.card H := by
 
   -- 1. Since G and (LeftCosets H × H) are bijective, they have the same size.
