@@ -4,19 +4,19 @@ This project formalizes **Lagrange's theorem** in group theory using [Lean](http
 
 The central idea is to construct an explicit bijection
 
-[\
+$$
 G \simeq G/H \times H,
-\]
+$$
 
-where `G/H` is represented by a quotient of `G` under the relation of belonging to the same left coset. The cardinality statement then follows immediately.
+where $`G/H`$ is represented by a quotient of $`G`$ under the relation of belonging to the same left coset. The cardinality statement then follows immediately.
 
 ## Mathematical Structure
 
 For a subgroup $(H \leq G)$, define
 
-[\
+$$
 a \sim b \iff a^{-1}b \in H.
-\]
+$$
 
 This relation identifies exactly the elements belonging to the same left coset.
 
@@ -151,9 +151,9 @@ simp only [Fintype.card_prod]
 
 Thus, the formal proof mirrors the mathematical argument:
 
-[
+$$
 |G| = |G/H \times H| = |G/H|,|H|.
-]
+$$
 
 ## Installation
 
