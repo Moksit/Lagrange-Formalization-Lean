@@ -137,7 +137,7 @@ def groupEquivCosetProd (H : Subgroup G) :
   G ≃ LeftCosets H × H
 ```
 
-Constructs the explicit bijection. An element $g:G$ is represented by its coset together with the  subgroup element describing the difference between \[g\] and a chosen representative.
+Constructs the explicit bijection. An element $g\in G$ is represented by its coset together with the  subgroup element describing the difference between $g$ and a chosen representative.
 
 ## Proof of Lagrange's Theorem
 
