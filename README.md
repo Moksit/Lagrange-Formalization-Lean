@@ -2,7 +2,20 @@
 
 This project formalizes **Lagrange's theorem** in group theory using [Lean](https://lean-lang.org/) and [Mathlib](https://github.com/leanprover-community/mathlib4).
 
-The central idea is to construct an explicit bijection
+The is stated as follows: for $G$ a finite group and $H$ a subgroup of $G$, one has:
+
+$|G| = |G/H| \times |H|.$
+
+In lean, it takes the form:
+
+```lean
+theorem lagrange_theorem [Fintype G] (H : Subgroup G)
+    [Fintype H] [Fintype (LeftCosets H)] :
+    Fintype.card G =
+      Fintype.card (LeftCosets H) * Fintype.card H
+```
+
+The central idea of the proof is to construct an explicit bijection
 
 $$
 G \simeq G/H \times H,
@@ -12,7 +25,7 @@ where $`G/H`$ is represented by a quotient of $`G`$ under the relation of belong
 
 ## Mathematical Structure
 
-For a subgroup $(H \leq G)$, define
+Assume $H \leq G$ and define
 
 $$
 a \sim b \iff a^{-1}b \in H.
@@ -20,7 +33,7 @@ $$
 
 This relation identifies exactly the elements belonging to the same left coset.
 
-The formalization proceeds in three stages:
+The formalization of the proof proceeds in three stages:
 
 1. Define and prove that `leftRel H` is an equivalence relation.
 2. Construct a bijection
@@ -90,7 +103,7 @@ groupEquivCosetProd
 lagrange_theorem
 ```
 
-The important design choice is that the final theorem does **not** prove cardinalities directly. The difficult mathematical work is isolated in the construction of the equivalence; once
+The difficult mathematical work is isolated in the construction of the equivalence; once
 
 ```lean
 G ≃ LeftCosets H × H
@@ -129,31 +142,18 @@ def groupEquivCosetProd (H : Subgroup G) :
   G ≃ LeftCosets H × H
 ```
 
-Constructs the explicit bijection. An element `g : G` is represented by its coset together with the subgroup element describing the difference between `g` and a chosen representative.
+Constructs the explicit bijection. An element $`g : G`$ is represented by its coset together with the subgroup element describing the difference between $`g`$ and a chosen representative.
 
-## Lagrange's Theorem
+## Proof of Lagrange's Theorem
 
-The final theorem is:
-
-```lean
-theorem lagrange_theorem [Fintype G] (H : Subgroup G)
-    [Fintype H] [Fintype (LeftCosets H)] :
-    Fintype.card G =
-      Fintype.card (LeftCosets H) * Fintype.card H
-```
-
-The proof reduces to:
+The proof then reduces to:
 
 ```lean
 rw [Fintype.card_congr (groupEquivCosetProd H)]
 simp only [Fintype.card_prod]
 ```
 
-Thus, the formal proof mirrors the mathematical argument:
-
-$$
-|G| = |G/H \times H| = |G/H|,|H|.
-$$
+In fact, the formal proof mirrors the mathematical argument:$|G| = |G/H \times H| = |G/H| \times |H|.$
 
 ## Installation
 
