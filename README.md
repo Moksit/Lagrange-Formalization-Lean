@@ -86,9 +86,6 @@ G : Type* [Group G]
 ```text
 leftRel
    │
-   ├── refl
-   ├── symm
-   └── trans
    │
    ▼
 LeftCosets
@@ -96,8 +93,6 @@ LeftCosets
    ▼
 groupEquivCosetProd
    │
-   ├── left_inv
-   └── right_inv
    │
    ▼
 lagrange_theorem
@@ -142,7 +137,7 @@ def groupEquivCosetProd (H : Subgroup G) :
   G ≃ LeftCosets H × H
 ```
 
-Constructs the explicit bijection. An element $`g : G`$ is represented by its coset together with the subgroup element describing the difference between $`g`$ and a chosen representative.
+Constructs the explicit bijection. An element $g : G$ is represented by its coset together with the subgroup element describing the difference between $g$ and a chosen representative.
 
 ## Proof of Lagrange's Theorem
 
@@ -153,7 +148,7 @@ rw [Fintype.card_congr (groupEquivCosetProd H)]
 simp only [Fintype.card_prod]
 ```
 
-In fact, the formal proof mirrors the mathematical argument:$|G| = |G/H \times H| = |G/H| \times |H|.$
+In fact, the formal proof mirrors the mathematical argument: $|G| = |G/H \times H| = |G/H| \times |H|.$
 
 ## Installation
 
