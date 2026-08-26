@@ -1,0 +1,7 @@
+{"plugins": [],
+ "package": "lagrange",
+ "options": {"pp.unicode.fun": true, "autoImplicit": false},
+ "name": "Lagrange",
+ "isModule": false,
+ "importArts": {},
+ "dynlibs": []}
